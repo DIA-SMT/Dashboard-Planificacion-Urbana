@@ -1,0 +1,303 @@
+'use client'
+
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { Project, EjeTematico, Hito, avancePctFromHitos } from '@/types'
+import { ESTADO_DOT, formatDate } from '@/lib/project-ui'
+import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
+import type { EstadoProyecto } from '@/types'
+
+type Row = Project & {
+    eje_tematico: EjeTematico | null
+    avance: number
+}
+
+type Scale = 'day' | 'week' | 'month'
+
+const PX_PER_UNIT: Record<Scale, number> = {
+    day: 24,
+    week: 18,
+    month: 60,
+}
+
+function startOfDay(d: Date) {
+    const x = new Date(d); x.setHours(0, 0, 0, 0); return x
+}
+
+function diffDays(a: Date, b: Date) {
+    return Math.round((startOfDay(b).getTime() - startOfDay(a).getTime()) / 86400000)
+}
+
+function addDays(d: Date, n: number) {
+    const x = new Date(d); x.setDate(x.getDate() + n); return x
+}
+
+function parseDate(s: string | null): Date | null {
+    if (!s) return null
+    return new Date(s + 'T00:00:00')
+}
+
+export function GanttView() {
+    const router = useRouter()
+    const [rows, setRows] = useState<Row[]>([])
+    const [loading, setLoading] = useState(true)
+    const [scale, setScale] = useState<Scale>('week')
+    const scrollRef = useRef<HTMLDivElement>(null)
+
+    const fetchAll = useCallback(async () => {
+        setLoading(true)
+        const [{ data: projects }, { data: hitos }] = await Promise.all([
+            supabase
+                .from('projects')
+                .select('*, eje_tematico:eje_tematico_id(*)')
+                .order('fecha_inicio', { ascending: true, nullsFirst: false }),
+            supabase.from('hitos').select('project_id, estado'),
+        ])
+
+        const hitosByProject = new Map<string, Pick<Hito, 'estado'>[]>()
+        ;(hitos || []).forEach((h: any) => {
+            const list = hitosByProject.get(h.project_id) || []
+            list.push({ estado: h.estado })
+            hitosByProject.set(h.project_id, list)
+        })
+
+        setRows((projects || []).map((p: any) => ({
+            ...p,
+            avance: avancePctFromHitos(hitosByProject.get(p.id) || []),
+        })))
+        setLoading(false)
+    }, [])
+
+    useEffect(() => { fetchAll() }, [fetchAll])
+    useRefreshOnFocus(fetchAll)
+
+    // Calcular rango de fechas global
+    const { rangeStart, rangeEnd, today } = useMemo(() => {
+        const today = startOfDay(new Date())
+        let min = addDays(today, -15)
+        let max = addDays(today, 60)
+        for (const r of rows) {
+            const ini = parseDate(r.fecha_inicio)
+            const fin = parseDate(r.deadline)
+            if (ini && ini < min) min = ini
+            if (fin && fin > max) max = fin
+            if (ini && !fin && ini > max) max = addDays(ini, 30)
+        }
+        // padding
+        min = addDays(min, -7)
+        max = addDays(max, 14)
+        return { rangeStart: min, rangeEnd: max, today }
+    }, [rows])
+
+    const totalDays = diffDays(rangeStart, rangeEnd)
+    const pxPerDay = PX_PER_UNIT[scale] / (scale === 'week' ? 7 : scale === 'month' ? 30 : 1)
+    const totalWidth = totalDays * pxPerDay
+
+    const headerCells = useMemo(() => {
+        const cells: { label: string; left: number; width: number; major?: boolean }[] = []
+        if (scale === 'day') {
+            for (let i = 0; i < totalDays; i++) {
+                const d = addDays(rangeStart, i)
+                cells.push({
+                    label: `${d.getDate()}`,
+                    left: i * pxPerDay,
+                    width: pxPerDay,
+                    major: d.getDay() === 1,
+                })
+            }
+        } else if (scale === 'week') {
+            // alinear al lunes
+            const cursor = new Date(rangeStart)
+            while (cursor.getDay() !== 1) cursor.setDate(cursor.getDate() - 1)
+            let i = 0
+            while (addDays(cursor, i * 7) < rangeEnd) {
+                const d = addDays(cursor, i * 7)
+                const offset = diffDays(rangeStart, d)
+                cells.push({
+                    label: `${d.getDate()}/${d.getMonth() + 1}`,
+                    left: offset * pxPerDay,
+                    width: 7 * pxPerDay,
+                    major: d.getDate() <= 7,
+                })
+                i++
+            }
+        } else {
+            // month
+            const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1)
+            while (cursor < rangeEnd) {
+                const next = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
+                const offset = diffDays(rangeStart, cursor)
+                const days = diffDays(cursor, next)
+                cells.push({
+                    label: cursor.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }),
+                    left: offset * pxPerDay,
+                    width: days * pxPerDay,
+                    major: cursor.getMonth() === 0,
+                })
+                cursor.setMonth(cursor.getMonth() + 1)
+            }
+        }
+        return cells
+    }, [scale, rangeStart, rangeEnd, totalDays, pxPerDay])
+
+    const todayLeft = diffDays(rangeStart, today) * pxPerDay
+    const ROW_H = 38
+
+    // Scroll a hoy al cargar
+    useEffect(() => {
+        if (loading || !scrollRef.current) return
+        scrollRef.current.scrollLeft = Math.max(0, todayLeft - 200)
+    }, [loading, todayLeft])
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+            <div className="max-w-[1600px] mx-auto">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h1 className="text-3xl font-bold text-slate-900">Cronograma</h1>
+                        <p className="text-slate-600 text-sm">Línea de tiempo de los proyectos</p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-md p-1">
+                        {(['day', 'week', 'month'] as Scale[]).map(s => (
+                            <button
+                                key={s}
+                                onClick={() => setScale(s)}
+                                className={`px-3 py-1 text-sm rounded ${scale === s ? 'bg-blue-500 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                            >
+                                {s === 'day' ? 'Día' : s === 'week' ? 'Semana' : 'Mes'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {loading ? (
+                    <div className="p-8 text-slate-500">Cargando...</div>
+                ) : rows.length === 0 ? (
+                    <div className="bg-white rounded-lg p-8 text-center text-slate-500">
+                        No hay proyectos para mostrar
+                    </div>
+                ) : (
+                    <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+                        <div className="flex">
+                            {/* Sidebar fijo */}
+                            <div className="shrink-0 w-[280px] border-r border-slate-200">
+                                <div className="h-12 border-b border-slate-200 bg-slate-50 flex items-center px-4 text-xs font-semibold text-slate-600 uppercase">
+                                    Proyecto
+                                </div>
+                                {rows.map(r => (
+                                    <div
+                                        key={r.id}
+                                        onClick={() => router.push(`/projects/${r.id}`)}
+                                        className="px-4 border-b border-slate-100 cursor-pointer hover:bg-slate-50 flex items-center gap-2"
+                                        style={{ height: ROW_H }}
+                                    >
+                                        <span className={`w-2 h-2 rounded-full shrink-0 ${ESTADO_DOT[r.estado as EstadoProyecto] || 'bg-slate-300'}`} />
+                                        <span className="text-sm truncate" title={r.nombre}>{r.nombre}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Timeline scrollable */}
+                            <div className="flex-1 overflow-x-auto" ref={scrollRef}>
+                                <div className="relative" style={{ width: totalWidth }}>
+                                    {/* Header */}
+                                    <div className="h-12 border-b border-slate-200 bg-slate-50 relative">
+                                        {headerCells.map((c, i) => (
+                                            <div
+                                                key={i}
+                                                className={`absolute top-0 bottom-0 flex items-center justify-center text-[11px] text-slate-600 border-l ${c.major ? 'border-slate-300 font-semibold' : 'border-slate-100'}`}
+                                                style={{ left: c.left, width: c.width }}
+                                            >
+                                                {c.label}
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Body */}
+                                    <div className="relative">
+                                        {/* Grid columns */}
+                                        {headerCells.map((c, i) => (
+                                            <div
+                                                key={i}
+                                                className={`absolute top-0 bottom-0 border-l ${c.major ? 'border-slate-200' : 'border-slate-100'}`}
+                                                style={{ left: c.left, width: c.width, height: rows.length * ROW_H }}
+                                            />
+                                        ))}
+
+                                        {/* Today line */}
+                                        {todayLeft >= 0 && todayLeft <= totalWidth && (
+                                            <div
+                                                className="absolute top-0 w-px bg-red-500 z-10"
+                                                style={{ left: todayLeft, height: rows.length * ROW_H }}
+                                            >
+                                                <div className="absolute -top-0 -left-[18px] bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded">
+                                                    hoy
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Rows + bars */}
+                                        {rows.map((r, idx) => {
+                                            const ini = parseDate(r.fecha_inicio)
+                                            const fin = parseDate(r.deadline)
+                                            let barLeft = 0, barWidth = 0, hasBar = false
+                                            if (ini && fin) {
+                                                barLeft = diffDays(rangeStart, ini) * pxPerDay
+                                                barWidth = Math.max(diffDays(ini, fin) * pxPerDay, 4)
+                                                hasBar = true
+                                            } else if (ini && !fin) {
+                                                barLeft = diffDays(rangeStart, ini) * pxPerDay
+                                                barWidth = 14 * pxPerDay
+                                                hasBar = true
+                                            } else if (!ini && fin) {
+                                                const end = diffDays(rangeStart, fin) * pxPerDay
+                                                barLeft = Math.max(end - 14 * pxPerDay, 0)
+                                                barWidth = 14 * pxPerDay
+                                                hasBar = true
+                                            }
+                                            const color = r.eje_tematico?.color || '#3b82f6'
+                                            return (
+                                                <div
+                                                    key={r.id}
+                                                    className="relative border-b border-slate-100"
+                                                    style={{ height: ROW_H }}
+                                                    onClick={() => router.push(`/projects/${r.id}`)}
+                                                >
+                                                    {hasBar && (
+                                                        <div
+                                                            className="absolute top-1/2 -translate-y-1/2 rounded shadow-sm cursor-pointer hover:brightness-110 overflow-hidden"
+                                                            style={{
+                                                                left: barLeft,
+                                                                width: barWidth,
+                                                                height: 20,
+                                                                background: color + '40',
+                                                                border: `1px solid ${color}`,
+                                                            }}
+                                                            title={`${r.nombre}\n${formatDate(r.fecha_inicio)} → ${formatDate(r.deadline)}`}
+                                                        >
+                                                            <div
+                                                                className="h-full"
+                                                                style={{
+                                                                    width: `${r.avance}%`,
+                                                                    background: color,
+                                                                }}
+                                                            />
+                                                            <span className="absolute inset-0 flex items-center px-2 text-[11px] text-slate-800 font-medium truncate">
+                                                                {r.avance}%
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
