@@ -28,7 +28,8 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     const [hitos, setHitos] = useState<Hito[]>([])
     const [loading, setLoading] = useState(true)
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true)
         try {
             const [{ data: p }, { data: h }] = await Promise.all([
                 supabase
@@ -57,7 +58,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     }, [projectId])
 
     useEffect(() => { fetchData() }, [fetchData])
-    useRefreshOnFocus(fetchData)
+    useRefreshOnFocus(useCallback(() => { fetchData(true) }, [fetchData]))
 
     async function updateHitoStatus(hitoId: string, nuevo: string) {
         const prev = hitos

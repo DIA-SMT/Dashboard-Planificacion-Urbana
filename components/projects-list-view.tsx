@@ -32,8 +32,8 @@ export function ProjectsListView() {
     const [ejeFilter, setEjeFilter] = useState<string>(ALL)
     const [ejes, setEjes] = useState<EjeTematico[]>([])
 
-    const fetchAll = useCallback(async () => {
-        setLoading(true)
+    const fetchAll = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true)
         try {
             const [{ data: projects }, { data: hitos }, { data: ejesData }] = await Promise.all([
                 supabase
@@ -67,7 +67,7 @@ export function ProjectsListView() {
     }, [])
 
     useEffect(() => { fetchAll() }, [fetchAll])
-    useRefreshOnFocus(fetchAll)
+    useRefreshOnFocus(useCallback(() => { fetchAll(true) }, [fetchAll]))
 
     const filtered = useMemo(() => {
         const q = search.toLowerCase().trim()

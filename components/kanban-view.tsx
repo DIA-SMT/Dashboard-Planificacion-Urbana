@@ -27,8 +27,8 @@ export function KanbanView() {
     const [dragId, setDragId] = useState<string | null>(null)
     const [hoverCol, setHoverCol] = useState<string | null>(null)
 
-    const fetchAll = useCallback(async () => {
-        setLoading(true)
+    const fetchAll = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true)
         const [{ data: projects }, { data: hitos }] = await Promise.all([
             supabase
                 .from('projects')
@@ -53,7 +53,7 @@ export function KanbanView() {
     }, [])
 
     useEffect(() => { fetchAll() }, [fetchAll])
-    useRefreshOnFocus(fetchAll)
+    useRefreshOnFocus(useCallback(() => { fetchAll(true) }, [fetchAll]))
 
     async function moveTo(projectId: string, nuevoEstado: EstadoProyecto) {
         const current = cards.find(c => c.id === projectId)

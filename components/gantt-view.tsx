@@ -45,8 +45,8 @@ export function GanttView() {
     const [scale, setScale] = useState<Scale>('month')
     const scrollRef = useRef<HTMLDivElement>(null)
 
-    const fetchAll = useCallback(async () => {
-        setLoading(true)
+    const fetchAll = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true)
         const [{ data: projects }, { data: hitos }] = await Promise.all([
             supabase
                 .from('projects')
@@ -70,7 +70,7 @@ export function GanttView() {
     }, [])
 
     useEffect(() => { fetchAll() }, [fetchAll])
-    useRefreshOnFocus(fetchAll)
+    useRefreshOnFocus(useCallback(() => { fetchAll(true) }, [fetchAll]))
 
     // Calcular rango de fechas global
     const { rangeStart, rangeEnd, today } = useMemo(() => {
