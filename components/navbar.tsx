@@ -28,8 +28,13 @@ export function Navbar() {
 
     const handleSignOut = async () => {
         await signOut()
-        router.refresh()
-        router.push('/login')
+        // Reload completo para asegurar estado limpio (algunos cuelgues quedan
+        // pegados con router.push porque no remountea AuthProvider).
+        if (typeof window !== 'undefined') {
+            window.location.href = '/login'
+        } else {
+            router.push('/login')
+        }
     }
 
     const isActive = (href: string) =>
