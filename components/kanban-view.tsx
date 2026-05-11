@@ -11,7 +11,7 @@ import {
 import { ProjectForm } from '@/components/project-form'
 import { ESTADO_DOT, formatDate } from '@/lib/project-ui'
 import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
-import { withTimeout } from '@/lib/with-timeout'
+import { queryWithRetry } from '@/lib/with-timeout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Calendar, User } from 'lucide-react'
@@ -35,16 +35,16 @@ export function KanbanView() {
         if (!silent) setLoading(true)
         setError(null)
         try {
-            const [{ data: projects }, { data: hitos }] = await withTimeout(
-                Promise.all([
+            const [{ data: projects }, { data: hitos }] = await queryWithRetry(
+                () => Promise.all([
                     supabase
                         .from('projects')
                         .select('*, eje_tematico:eje_tematico_id(*), project_empresas(member:member_id(*))')
                         .order('deadline', { ascending: true, nullsFirst: false }),
                     supabase.from('hitos').select('project_id, estado'),
                 ]),
+                'kanban',
                 10000,
-                'kanban'
             )
 
             const hitosByProject = new Map<string, Pick<Hito, 'estado'>[]>()

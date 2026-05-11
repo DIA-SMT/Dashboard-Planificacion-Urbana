@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Project, EjeTematico, Hito, avancePctFromHitos } from '@/types'
 import { ESTADO_DOT, formatDate } from '@/lib/project-ui'
 import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
-import { withTimeout } from '@/lib/with-timeout'
+import { queryWithRetry } from '@/lib/with-timeout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { EstadoProyecto } from '@/types'
@@ -53,16 +53,16 @@ export function GanttView() {
         if (!silent) setLoading(true)
         setError(null)
         try {
-            const [{ data: projects }, { data: hitos }] = await withTimeout(
-                Promise.all([
+            const [{ data: projects }, { data: hitos }] = await queryWithRetry(
+                () => Promise.all([
                     supabase
                         .from('projects')
                         .select('*, eje_tematico:eje_tematico_id(*)')
                         .order('fecha_inicio', { ascending: true, nullsFirst: false }),
                     supabase.from('hitos').select('project_id, estado'),
                 ]),
+                'cronograma',
                 10000,
-                'cronograma'
             )
 
             const hitosByProject = new Map<string, Pick<Hito, 'estado'>[]>()

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table'
 import { ESTADO_COLORS, PRIORIDAD_COLORS, formatMonto, formatDate } from '@/lib/project-ui'
 import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
-import { withTimeout } from '@/lib/with-timeout'
+import { queryWithRetry } from '@/lib/with-timeout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/components/stat-card'
@@ -41,8 +41,8 @@ export function ProjectsListView() {
         if (!silent) setLoading(true)
         setError(null)
         try {
-            const [{ data: projects }, { data: hitos }, { data: ejesData }] = await withTimeout(
-                Promise.all([
+            const [{ data: projects }, { data: hitos }, { data: ejesData }] = await queryWithRetry(
+                () => Promise.all([
                     supabase
                         .from('projects')
                         .select('*, eje_tematico:eje_tematico_id(*), project_empresas(member:member_id(*))')
@@ -50,8 +50,8 @@ export function ProjectsListView() {
                     supabase.from('hitos').select('project_id, estado'),
                     supabase.from('eje_tematico').select('*').order('nombre'),
                 ]),
+                'proyectos',
                 10000,
-                'proyectos'
             )
 
             const hitosByProject = new Map<string, Pick<Hito, 'estado'>[]>()
