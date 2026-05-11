@@ -13,6 +13,7 @@ import { ESTADO_DOT, formatDate } from '@/lib/project-ui'
 import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
 import { withTimeout } from '@/lib/with-timeout'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Calendar, User } from 'lucide-react'
 
 type Card = Project & {
@@ -119,9 +120,16 @@ export function KanbanView() {
                 )}
 
                 {loading ? (
-                    <div className="p-8 text-slate-500 flex items-center justify-between bg-white rounded-lg border">
-                        <span>Cargando...</span>
-                        <Button variant="ghost" size="sm" onClick={() => fetchAll()}>Reintentar</Button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {ESTADOS_PROYECTO.map(estado => (
+                            <div key={estado} className="bg-white rounded-lg border p-3 min-h-[400px]">
+                                <Skeleton className="h-5 w-32 mb-3" />
+                                <div className="space-y-2">
+                                    <Skeleton className="h-24 w-full" />
+                                    <Skeleton className="h-24 w-full" />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

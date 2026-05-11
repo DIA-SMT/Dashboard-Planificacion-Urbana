@@ -7,7 +7,7 @@ import { Project, Member, EjeTematico, Hito, avancePctFromHitos, ESTADOS_PROYECT
 import { Input } from '@/components/ui/input'
 import { ProjectForm } from '@/components/project-form'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, FolderKanban } from 'lucide-react'
+import { Search, FolderKanban, Layers, Activity, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -15,6 +15,8 @@ import { ESTADO_COLORS, PRIORIDAD_COLORS, formatMonto, formatDate } from '@/lib/
 import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
 import { withTimeout } from '@/lib/with-timeout'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { StatCard } from '@/components/stat-card'
 import type { EstadoProyecto, Prioridad } from '@/types'
 
 type Row = Project & {
@@ -95,15 +97,73 @@ export function ProjectsListView() {
         })
     }, [rows, search, estadoFilter, ejeFilter])
 
+    const stats = useMemo(() => {
+        const byEstado: Record<EstadoProyecto, number> = {
+            'Pendiente': 0, 'En curso': 0, 'En riesgo': 0, 'Completado': 0,
+        }
+        rows.forEach(r => {
+            if (r.estado in byEstado) byEstado[r.estado as EstadoProyecto]++
+        })
+        return { total: rows.length, ...byEstado }
+    }, [rows])
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-            <div className="w-full">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div>
-                        <h1 className="text-3xl font-bold text-slate-900">Proyectos</h1>
-                        <p className="text-slate-600 text-sm">Planificación Urbana — tablero general</p>
+        <div className="min-h-screen bg-background">
+            {/* Hero header con tinte de marca */}
+            <div className="border-b bg-gradient-to-b from-[#1f89f6]/5 to-transparent">
+                <div className="w-full px-6 pt-8 pb-6">
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                        <div>
+                            <div className="text-xs font-semibold text-[#1f89f6] uppercase tracking-wider mb-2">
+                                Planificación Urbana
+                            </div>
+                            <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Proyectos</h1>
+                            <p className="text-slate-500 mt-1">Tablero general de seguimiento</p>
+                        </div>
+                        <ProjectForm onSaved={fetchAll} />
                     </div>
-                    <ProjectForm onSaved={fetchAll} />
+                </div>
+            </div>
+
+            <div className="w-full px-6 py-6">
+
+                {/* Stat cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <StatCard
+                        label="Total"
+                        value={stats.total}
+                        icon={<Layers className="w-5 h-5" />}
+                        tone="brand"
+                        loading={loading}
+                        hint="Proyectos activos en el sistema"
+                    />
+                    <StatCard
+                        label="En curso"
+                        value={stats['En curso']}
+                        icon={<Activity className="w-5 h-5" />}
+                        tone="teal"
+                        loading={loading}
+                        onClick={() => setEstadoFilter('En curso')}
+                        hint={stats.total > 0 ? `${Math.round(stats['En curso'] / stats.total * 100)}% del total` : '—'}
+                    />
+                    <StatCard
+                        label="En riesgo"
+                        value={stats['En riesgo']}
+                        icon={<AlertTriangle className="w-5 h-5" />}
+                        tone={stats['En riesgo'] > 0 ? 'red' : 'slate'}
+                        loading={loading}
+                        onClick={() => setEstadoFilter('En riesgo')}
+                        hint={stats['En riesgo'] > 0 ? 'Requieren atención' : 'Sin alertas'}
+                    />
+                    <StatCard
+                        label="Completados"
+                        value={stats['Completado']}
+                        icon={<CheckCircle2 className="w-5 h-5" />}
+                        tone="emerald"
+                        loading={loading}
+                        onClick={() => setEstadoFilter('Completado')}
+                        hint="Cerrados con éxito"
+                    />
                 </div>
 
                 {/* Filtros */}
@@ -146,22 +206,40 @@ export function ProjectsListView() {
                 )}
 
                 {/* Tabla */}
-                <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
+                <div className="bg-white rounded-xl border shadow-sm overflow-x-auto">
                     {loading ? (
-                        <div className="p-8 text-slate-500 flex items-center justify-between">
-                            <span>Cargando proyectos...</span>
-                            <Button variant="ghost" size="sm" onClick={() => fetchAll()}>
-                                Reintentar
-                            </Button>
+                        <div className="p-4 space-y-3">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <div key={i} className="flex gap-3 items-center">
+                                    <Skeleton className="h-5 w-16" />
+                                    <Skeleton className="h-5 flex-1 max-w-[420px]" />
+                                    <Skeleton className="h-5 w-24" />
+                                    <Skeleton className="h-5 w-20" />
+                                    <Skeleton className="h-5 w-32" />
+                                    <Skeleton className="h-2.5 w-28 rounded-full" />
+                                    <Skeleton className="h-5 w-20" />
+                                </div>
+                            ))}
+                            <div className="flex justify-end pt-2">
+                                <Button variant="ghost" size="sm" onClick={() => fetchAll()}>
+                                    Reintentar
+                                </Button>
+                            </div>
                         </div>
                     ) : filtered.length === 0 ? (
-                        <div className="text-center py-16">
-                            <FolderKanban className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-                            <h3 className="text-lg font-semibold text-slate-700 mb-1">No hay proyectos</h3>
-                            <p className="text-slate-500 text-sm">
+                        <div className="text-center py-20 px-6">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#1f89f6]/10 mb-4">
+                                <FolderKanban className="w-8 h-8 text-[#1f89f6]" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900 mb-1.5">
                                 {search || estadoFilter !== ALL || ejeFilter !== ALL
-                                    ? 'Probá ajustar los filtros'
-                                    : 'Comenzá creando tu primer proyecto'}
+                                    ? 'Sin resultados'
+                                    : 'No hay proyectos todavía'}
+                            </h3>
+                            <p className="text-slate-500 text-sm max-w-sm mx-auto">
+                                {search || estadoFilter !== ALL || ejeFilter !== ALL
+                                    ? 'Probá ajustar los filtros o el término de búsqueda.'
+                                    : 'Comenzá creando el primer proyecto del tablero.'}
                             </p>
                         </div>
                     ) : (

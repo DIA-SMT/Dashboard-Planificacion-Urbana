@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Pencil, X } from 'lucide-react'
+import { useToast } from '@/components/ui/toaster'
 
 const UNASSIGNED = '__none__'
 
@@ -32,6 +33,7 @@ export function ProjectForm({ onSaved, project }: Props) {
     const [empresaInput, setEmpresaInput] = useState('')
     const [showSuggestions, setShowSuggestions] = useState(false)
     const { role } = useAuth()
+    const toast = useToast()
 
     const emptyForm = {
         codigo: '',
@@ -165,10 +167,14 @@ export function ProjectForm({ onSaved, project }: Props) {
                 setFormData(emptyForm)
                 setSelectedEmpresas([])
             }
+            toast.success(
+                mode === 'edit' ? 'Proyecto actualizado' : 'Proyecto creado',
+                payload.nombre
+            )
             onSaved()
         } catch (err) {
             console.error('Error guardando proyecto:', err)
-            alert(`Error: ${(err as Error).message}`)
+            toast.error('No se pudo guardar el proyecto', (err as Error).message)
         } finally {
             setLoading(false)
         }

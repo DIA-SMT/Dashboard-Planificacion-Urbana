@@ -40,43 +40,61 @@ export function Navbar() {
     const isActive = (href: string) =>
         href === '/' ? pathname === '/' : pathname?.startsWith(href)
 
-    const renderLink = ({ href, label, Icon }: typeof NAV_LINKS[number]) => (
-        <Link
-            key={href}
-            href={href}
-            onClick={() => setIsMobileMenuOpen(false)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                isActive(href)
-                    ? 'bg-white/20 text-white'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-            }`}
-        >
-            <Icon className="h-4 w-4" />
-            {label}
-        </Link>
-    )
+    const renderLink = ({ href, label, Icon }: typeof NAV_LINKS[number]) => {
+        const active = isActive(href)
+        return (
+            <Link
+                key={href}
+                href={href}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`relative flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    active
+                        ? 'bg-white text-[#1f89f6] shadow-sm'
+                        : 'text-white/85 hover:text-white hover:bg-white/10'
+                }`}
+            >
+                <Icon className="h-4 w-4" />
+                {label}
+            </Link>
+        )
+    }
 
     return (
         <nav className="navbar relative">
             <div className="navbar-container flex items-center justify-between w-full">
-                <div className="navbar-logo">
-                    <Image
-                        src="/Logo_SMT_neg_4.png"
-                        alt="Logo Municipalidad de San Miguel de Tucumán"
-                        width={200}
-                        height={200}
-                        className="logo-muni"
-                        priority
-                        quality={100}
-                        unoptimized
-                    />
+                <div className="flex items-center gap-3">
+                    <div className="navbar-logo">
+                        <Image
+                            src="/Logo_SMT_neg_4.png"
+                            alt="Logo Municipalidad de San Miguel de Tucumán"
+                            width={200}
+                            height={200}
+                            className="logo-muni"
+                            priority
+                            quality={100}
+                            unoptimized
+                        />
+                    </div>
+                    <div className="hidden md:block border-l border-white/25 pl-3">
+                        <div className="text-[10px] uppercase tracking-wider text-white/70 font-medium leading-tight">
+                            Dirección
+                        </div>
+                        <div className="text-sm font-semibold text-white leading-tight">
+                            Planificación Urbana
+                        </div>
+                    </div>
                 </div>
                 {user && (
                     <>
                         {/* Desktop */}
                         <div className="hidden lg:flex items-center gap-1">
                             {NAV_LINKS.map(renderLink)}
-                            {role === 'superadmin' && ADMIN_LINKS.map(renderLink)}
+                            {role === 'superadmin' && (
+                                <>
+                                    <div className="w-px h-6 bg-white/20 mx-2" />
+                                    {ADMIN_LINKS.map(renderLink)}
+                                </>
+                            )}
                         </div>
 
                         <div className="hidden lg:flex items-center gap-4">

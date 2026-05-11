@@ -8,6 +8,7 @@ import { ESTADO_DOT, formatDate } from '@/lib/project-ui'
 import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
 import { withTimeout } from '@/lib/with-timeout'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { EstadoProyecto } from '@/types'
 
 type Row = Project & {
@@ -199,9 +200,17 @@ export function GanttView() {
                 )}
 
                 {loading ? (
-                    <div className="p-8 text-slate-500 flex items-center justify-between bg-white rounded-lg border">
-                        <span>Cargando...</span>
-                        <Button variant="ghost" size="sm" onClick={() => fetchAll()}>Reintentar</Button>
+                    <div className="space-y-3">
+                        <div className="bg-white rounded-lg border p-4 flex gap-2 flex-wrap">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <Skeleton key={i} className="h-8 w-48" />
+                            ))}
+                        </div>
+                        <div className="bg-white rounded-lg border p-4 space-y-3">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <Skeleton key={i} className="h-10 w-full" />
+                            ))}
+                        </div>
                     </div>
                 ) : rows.length === 0 ? (
                     <div className="bg-white rounded-lg p-8 text-center text-slate-500">

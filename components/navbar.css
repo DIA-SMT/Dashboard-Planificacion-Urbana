@@ -1,43 +1,44 @@
 .navbar {
-    background-color: #1f89f6;
+    background: linear-gradient(180deg, #1f89f6 0%, #1877d2 100%);
     width: 100%;
     position: sticky;
     top: 0;
     z-index: 50;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 16px -4px rgba(31, 137, 246, 0.25);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .navbar-container {
     max-width: 100%;
     margin: 0 auto;
-    padding: 0 1rem;
+    padding: 0 1.25rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 80px;
+    height: 76px;
 }
 
 .navbar-logo {
     display: flex;
-    align-items: flex-start;
-    padding: 10px 0;
+    align-items: center;
+    padding: 8px 0;
 }
 
 .logo-muni {
-    height: 60px !important;
+    height: 56px !important;
     width: auto !important;
     object-fit: contain;
     image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
     .navbar-container {
         padding: 0 0.75rem;
+        height: 72px;
     }
 
     .logo-muni {
-        height: 60px !important;
+        height: 52px !important;
     }
 }

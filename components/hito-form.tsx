@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { useToast } from '@/components/ui/toaster'
 
 type Props =
     | { mode: 'create'; projectId: string; onSaved: () => void; hito?: undefined }
@@ -23,6 +24,7 @@ export function HitoForm(props: Props) {
     const [loading, setLoading] = useState(false)
     const [deleting, setDeleting] = useState(false)
     const { role } = useAuth()
+    const toast = useToast()
 
     const empty = {
         titulo: '',
@@ -69,10 +71,11 @@ export function HitoForm(props: Props) {
             if (error) throw error
             setOpen(false)
             if (mode === 'create') setFormData(empty)
+            toast.success(mode === 'edit' ? 'Hito actualizado' : 'Hito creado', formData.titulo)
             onSaved()
         } catch (err) {
             console.error(err)
-            alert(`Error: ${(err as Error).message}`)
+            toast.error('No se pudo guardar el hito', (err as Error).message)
         } finally {
             setLoading(false)
         }
@@ -86,9 +89,10 @@ export function HitoForm(props: Props) {
             const { error } = await supabase.from('hitos').delete().eq('id', hito.id)
             if (error) throw error
             setOpen(false)
+            toast.success('Hito eliminado')
             onSaved()
         } catch (err) {
-            alert(`Error: ${(err as Error).message}`)
+            toast.error('No se pudo eliminar', (err as Error).message)
         } finally {
             setDeleting(false)
         }
