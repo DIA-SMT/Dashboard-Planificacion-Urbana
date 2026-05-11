@@ -42,7 +42,7 @@ export function GanttView() {
     const router = useRouter()
     const [rows, setRows] = useState<Row[]>([])
     const [loading, setLoading] = useState(true)
-    const [scale, setScale] = useState<Scale>('week')
+    const [scale, setScale] = useState<Scale>('month')
     const scrollRef = useRef<HTMLDivElement>(null)
 
     const fetchAll = useCallback(async () => {
