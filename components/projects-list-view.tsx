@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/table'
 import { ESTADO_COLORS, PRIORIDAD_COLORS, formatMonto, formatDate } from '@/lib/project-ui'
 import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
+import { withTimeout } from '@/lib/with-timeout'
+import { Button } from '@/components/ui/button'
 import type { EstadoProyecto, Prioridad } from '@/types'
 
 type Row = Project & {
@@ -27,6 +29,7 @@ export function ProjectsListView() {
     const router = useRouter()
     const [rows, setRows] = useState<Row[]>([])
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const [search, setSearch] = useState('')
     const [estadoFilter, setEstadoFilter] = useState<string>(ALL)
     const [ejeFilter, setEjeFilter] = useState<string>(ALL)
@@ -34,15 +37,20 @@ export function ProjectsListView() {
 
     const fetchAll = useCallback(async (silent = false) => {
         if (!silent) setLoading(true)
+        setError(null)
         try {
-            const [{ data: projects }, { data: hitos }, { data: ejesData }] = await Promise.all([
-                supabase
-                    .from('projects')
-                    .select('*, eje_tematico:eje_tematico_id(*), project_empresas(member:member_id(*))')
-                    .order('deadline', { ascending: true, nullsFirst: false }),
-                supabase.from('hitos').select('project_id, estado'),
-                supabase.from('eje_tematico').select('*').order('nombre'),
-            ])
+            const [{ data: projects }, { data: hitos }, { data: ejesData }] = await withTimeout(
+                Promise.all([
+                    supabase
+                        .from('projects')
+                        .select('*, eje_tematico:eje_tematico_id(*), project_empresas(member:member_id(*))')
+                        .order('deadline', { ascending: true, nullsFirst: false }),
+                    supabase.from('hitos').select('project_id, estado'),
+                    supabase.from('eje_tematico').select('*').order('nombre'),
+                ]),
+                10000,
+                'proyectos'
+            )
 
             const hitosByProject = new Map<string, Pick<Hito, 'estado'>[]>()
             ;(hitos || []).forEach((h: any) => {
@@ -61,6 +69,7 @@ export function ProjectsListView() {
             if (ejesData) setEjes(ejesData)
         } catch (err) {
             console.error('Error fetching projects:', err)
+            setError((err as Error).message ?? String(err))
         } finally {
             setLoading(false)
         }
@@ -124,10 +133,27 @@ export function ProjectsListView() {
                     </Select>
                 </div>
 
+                {error && (
+                    <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between gap-3">
+                        <div className="flex-1">
+                            <div className="font-semibold text-red-800 text-sm">No se pudieron cargar los proyectos</div>
+                            <div className="text-xs text-red-700 mt-0.5">{error}</div>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => fetchAll()}>
+                            Reintentar
+                        </Button>
+                    </div>
+                )}
+
                 {/* Tabla */}
                 <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
                     {loading ? (
-                        <div className="p-8 text-slate-500">Cargando proyectos...</div>
+                        <div className="p-8 text-slate-500 flex items-center justify-between">
+                            <span>Cargando proyectos...</span>
+                            <Button variant="ghost" size="sm" onClick={() => fetchAll()}>
+                                Reintentar
+                            </Button>
+                        </div>
                     ) : filtered.length === 0 ? (
                         <div className="text-center py-16">
                             <FolderKanban className="w-12 h-12 mx-auto text-slate-300 mb-3" />

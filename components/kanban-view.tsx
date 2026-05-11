@@ -11,6 +11,8 @@ import {
 import { ProjectForm } from '@/components/project-form'
 import { ESTADO_DOT, formatDate } from '@/lib/project-ui'
 import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
+import { withTimeout } from '@/lib/with-timeout'
+import { Button } from '@/components/ui/button'
 import { Calendar, User } from 'lucide-react'
 
 type Card = Project & {
@@ -24,32 +26,44 @@ export function KanbanView() {
     const { role } = useAuth()
     const [cards, setCards] = useState<Card[]>([])
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const [dragId, setDragId] = useState<string | null>(null)
     const [hoverCol, setHoverCol] = useState<string | null>(null)
 
     const fetchAll = useCallback(async (silent = false) => {
         if (!silent) setLoading(true)
-        const [{ data: projects }, { data: hitos }] = await Promise.all([
-            supabase
-                .from('projects')
-                .select('*, eje_tematico:eje_tematico_id(*), project_empresas(member:member_id(*))')
-                .order('deadline', { ascending: true, nullsFirst: false }),
-            supabase.from('hitos').select('project_id, estado'),
-        ])
+        setError(null)
+        try {
+            const [{ data: projects }, { data: hitos }] = await withTimeout(
+                Promise.all([
+                    supabase
+                        .from('projects')
+                        .select('*, eje_tematico:eje_tematico_id(*), project_empresas(member:member_id(*))')
+                        .order('deadline', { ascending: true, nullsFirst: false }),
+                    supabase.from('hitos').select('project_id, estado'),
+                ]),
+                10000,
+                'kanban'
+            )
 
-        const hitosByProject = new Map<string, Pick<Hito, 'estado'>[]>()
-        ;(hitos || []).forEach((h: any) => {
-            const list = hitosByProject.get(h.project_id) || []
-            list.push({ estado: h.estado })
-            hitosByProject.set(h.project_id, list)
-        })
+            const hitosByProject = new Map<string, Pick<Hito, 'estado'>[]>()
+            ;(hitos || []).forEach((h: any) => {
+                const list = hitosByProject.get(h.project_id) || []
+                list.push({ estado: h.estado })
+                hitosByProject.set(h.project_id, list)
+            })
 
-        setCards((projects || []).map((p: any) => ({
-            ...p,
-            empresas: (p.project_empresas || []).map((pe: any) => pe.member).filter(Boolean),
-            avance: avancePctFromHitos(hitosByProject.get(p.id) || []),
-        })))
-        setLoading(false)
+            setCards((projects || []).map((p: any) => ({
+                ...p,
+                empresas: (p.project_empresas || []).map((pe: any) => pe.member).filter(Boolean),
+                avance: avancePctFromHitos(hitosByProject.get(p.id) || []),
+            })))
+        } catch (err) {
+            console.error('Error fetching kanban:', err)
+            setError((err as Error).message ?? String(err))
+        } finally {
+            setLoading(false)
+        }
     }, [])
 
     useEffect(() => { fetchAll() }, [fetchAll])
@@ -94,8 +108,21 @@ export function KanbanView() {
                     <ProjectForm onSaved={fetchAll} />
                 </div>
 
+                {error && (
+                    <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between gap-3">
+                        <div className="flex-1">
+                            <div className="font-semibold text-red-800 text-sm">No se pudieron cargar los proyectos</div>
+                            <div className="text-xs text-red-700 mt-0.5">{error}</div>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => fetchAll()}>Reintentar</Button>
+                    </div>
+                )}
+
                 {loading ? (
-                    <div className="p-8 text-slate-500">Cargando...</div>
+                    <div className="p-8 text-slate-500 flex items-center justify-between bg-white rounded-lg border">
+                        <span>Cargando...</span>
+                        <Button variant="ghost" size="sm" onClick={() => fetchAll()}>Reintentar</Button>
+                    </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {ESTADOS_PROYECTO.map(estado => {

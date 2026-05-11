@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { Project, EjeTematico, Hito, avancePctFromHitos } from '@/types'
 import { ESTADO_DOT, formatDate } from '@/lib/project-ui'
 import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
+import { withTimeout } from '@/lib/with-timeout'
+import { Button } from '@/components/ui/button'
 import type { EstadoProyecto } from '@/types'
 
 type Row = Project & {
@@ -42,31 +44,43 @@ export function GanttView() {
     const router = useRouter()
     const [rows, setRows] = useState<Row[]>([])
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const [scale, setScale] = useState<Scale>('month')
     const scrollRef = useRef<HTMLDivElement>(null)
 
     const fetchAll = useCallback(async (silent = false) => {
         if (!silent) setLoading(true)
-        const [{ data: projects }, { data: hitos }] = await Promise.all([
-            supabase
-                .from('projects')
-                .select('*, eje_tematico:eje_tematico_id(*)')
-                .order('fecha_inicio', { ascending: true, nullsFirst: false }),
-            supabase.from('hitos').select('project_id, estado'),
-        ])
+        setError(null)
+        try {
+            const [{ data: projects }, { data: hitos }] = await withTimeout(
+                Promise.all([
+                    supabase
+                        .from('projects')
+                        .select('*, eje_tematico:eje_tematico_id(*)')
+                        .order('fecha_inicio', { ascending: true, nullsFirst: false }),
+                    supabase.from('hitos').select('project_id, estado'),
+                ]),
+                10000,
+                'cronograma'
+            )
 
-        const hitosByProject = new Map<string, Pick<Hito, 'estado'>[]>()
-        ;(hitos || []).forEach((h: any) => {
-            const list = hitosByProject.get(h.project_id) || []
-            list.push({ estado: h.estado })
-            hitosByProject.set(h.project_id, list)
-        })
+            const hitosByProject = new Map<string, Pick<Hito, 'estado'>[]>()
+            ;(hitos || []).forEach((h: any) => {
+                const list = hitosByProject.get(h.project_id) || []
+                list.push({ estado: h.estado })
+                hitosByProject.set(h.project_id, list)
+            })
 
-        setRows((projects || []).map((p: any) => ({
-            ...p,
-            avance: avancePctFromHitos(hitosByProject.get(p.id) || []),
-        })))
-        setLoading(false)
+            setRows((projects || []).map((p: any) => ({
+                ...p,
+                avance: avancePctFromHitos(hitosByProject.get(p.id) || []),
+            })))
+        } catch (err) {
+            console.error('Error fetching cronograma:', err)
+            setError((err as Error).message ?? String(err))
+        } finally {
+            setLoading(false)
+        }
     }, [])
 
     useEffect(() => { fetchAll() }, [fetchAll])
@@ -174,8 +188,21 @@ export function GanttView() {
                     </div>
                 </div>
 
+                {error && (
+                    <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between gap-3">
+                        <div className="flex-1">
+                            <div className="font-semibold text-red-800 text-sm">No se pudo cargar el cronograma</div>
+                            <div className="text-xs text-red-700 mt-0.5">{error}</div>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => fetchAll()}>Reintentar</Button>
+                    </div>
+                )}
+
                 {loading ? (
-                    <div className="p-8 text-slate-500">Cargando...</div>
+                    <div className="p-8 text-slate-500 flex items-center justify-between bg-white rounded-lg border">
+                        <span>Cargando...</span>
+                        <Button variant="ghost" size="sm" onClick={() => fetchAll()}>Reintentar</Button>
+                    </div>
                 ) : rows.length === 0 ? (
                     <div className="bg-white rounded-lg p-8 text-center text-slate-500">
                         No hay proyectos para mostrar
