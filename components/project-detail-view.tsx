@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ProjectForm } from '@/components/project-form'
 import { HitoForm } from '@/components/hito-form'
 import { ESTADO_COLORS, PRIORIDAD_COLORS, formatDate, formatMonto } from '@/lib/project-ui'
-import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
 import type { EstadoProyecto, Prioridad } from '@/types'
 import { ArrowLeft, CheckCircle2, Circle, Clock, AlertTriangle, Calendar, User, FileText, DollarSign, Hash, Building2 } from 'lucide-react'
 
@@ -58,7 +57,6 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     }, [projectId])
 
     useEffect(() => { fetchData() }, [fetchData])
-    useRefreshOnFocus(useCallback(() => { fetchData(true) }, [fetchData]))
 
     async function updateHitoStatus(hitoId: string, nuevo: string) {
         const prev = hitos

@@ -10,7 +10,6 @@ import {
 } from '@/types'
 import { ProjectForm } from '@/components/project-form'
 import { ESTADO_DOT, formatDate } from '@/lib/project-ui'
-import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
 import { queryWithRetry } from '@/lib/with-timeout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -68,7 +67,6 @@ export function KanbanView() {
     }, [])
 
     useEffect(() => { fetchAll() }, [fetchAll])
-    useRefreshOnFocus(useCallback(() => { fetchAll(true) }, [fetchAll]))
 
     async function moveTo(projectId: string, nuevoEstado: EstadoProyecto) {
         const current = cards.find(c => c.id === projectId)

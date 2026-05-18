@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Project, EjeTematico, Hito, avancePctFromHitos } from '@/types'
 import { ESTADO_DOT, formatDate } from '@/lib/project-ui'
-import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
 import { queryWithRetry } from '@/lib/with-timeout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -85,7 +84,6 @@ export function GanttView() {
     }, [])
 
     useEffect(() => { fetchAll() }, [fetchAll])
-    useRefreshOnFocus(useCallback(() => { fetchAll(true) }, [fetchAll]))
 
     // Calcular rango de fechas global
     const { rangeStart, rangeEnd, today } = useMemo(() => {

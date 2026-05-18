@@ -12,7 +12,6 @@ import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { ESTADO_COLORS, PRIORIDAD_COLORS, formatMonto, formatDate } from '@/lib/project-ui'
-import { useRefreshOnFocus } from '@/lib/use-refresh-on-focus'
 import { queryWithRetry } from '@/lib/with-timeout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -78,7 +77,6 @@ export function ProjectsListView() {
     }, [])
 
     useEffect(() => { fetchAll() }, [fetchAll])
-    useRefreshOnFocus(useCallback(() => { fetchAll(true) }, [fetchAll]))
 
     const filtered = useMemo(() => {
         const q = search.toLowerCase().trim()
