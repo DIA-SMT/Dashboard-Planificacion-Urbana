@@ -19,6 +19,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Planificación Urbana",
   description: "Tablero de proyectos de Planificación Urbana",
+  icons: {
+    icon: '/favicon.png',
+  }
 };
 
 export default function RootLayout({
